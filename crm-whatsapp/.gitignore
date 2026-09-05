@@ -1,0 +1,17 @@
+# Dados privados - NUNCA versionar
+backend/*.db
+backend/*.db-journal
+whatsapp-connector/.wwebjs_auth/
+whatsapp-connector/.wwebjs_cache/
+
+# Python
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Node.js
+whatsapp-connector/node_modules/
+
+# Logs
+*.log
