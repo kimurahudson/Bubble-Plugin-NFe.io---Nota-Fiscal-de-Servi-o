@@ -58,11 +58,14 @@ export default function Layout() {
         </button>
       </header>
 
-      <main className="flex-1 p-4 md:p-8 pb-20 md:pb-8 overflow-x-hidden">
+      <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 overflow-x-hidden">
         <Outlet />
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex">
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end className={({ isActive }) => mobileLinkClasses(isActive)}>
             <span className="text-lg leading-none">{item.icon}</span>

@@ -50,22 +50,45 @@ O app abre em `http://localhost:5173` e já usa um proxy para a API em `/api`.
 
 ## Deploy (para acessar do celular e do computador pela internet)
 
-O app foi feito para funcionar com backend e frontend hospedados separadamente:
+O app foi feito para funcionar com backend e frontend hospedados separadamente, em domínios
+diferentes.
 
-1. **Backend**: publique a pasta `backend/` em qualquer serviço que rode Node.js com disco
-   persistente (Render, Railway, Fly.io, um VPS, etc.). Configure as variáveis de ambiente
-   `JWT_SECRET` (obrigatório, use um valor longo e aleatório) e opcionalmente `PORT` e `DATA_DIR`.
-2. **Frontend**: publique a pasta `frontend/` (após `npm run build`, o resultado fica em
-   `frontend/dist`) em qualquer host de arquivos estáticos (Vercel, Netlify, Cloudflare Pages,
-   etc.), apontando as chamadas `/api` para a URL do backend publicado (ajuste `VITE_API_PROXY_TARGET`
-   em desenvolvimento, ou configure um proxy/rewrite equivalente no host escolhido em produção).
-3. Depois de publicado, acesse a URL do frontend pelo celular e "adicione à tela inicial" para
-   usar como app. Como os dados ficam no backend, entrar com a mesma conta no computador e no
-   celular mantém tudo sincronizado automaticamente — não existe armazenamento local que precise
-   ser sincronizado manualmente.
+### 1. Backend
 
-Se preferir, posso ajudar a fazer esse deploy num provedor específico — é só indicar qual (Render,
-Railway, Vercel, etc.) e as credenciais/acesso necessários.
+Publique a pasta `backend/` em qualquer serviço que rode Node.js com disco persistente (Render,
+Railway, Fly.io, um VPS, etc.). Já existe um `Dockerfile` pronto em `backend/Dockerfile`, então
+qualquer provedor que aceite Docker funciona sem configuração extra.
+
+Variáveis de ambiente:
+
+| Variável      | Obrigatória | Descrição                                                        |
+|---------------|-------------|-------------------------------------------------------------------|
+| `JWT_SECRET`  | Sim         | Segredo longo e aleatório para assinar os tokens de login          |
+| `PORT`        | Não         | Porta da API (padrão 4000; a maioria dos provedores já define)     |
+| `DATA_DIR`    | Não         | Onde salvar o banco SQLite (padrão `./data`; no Docker use `/data`, montando um volume persistente) |
+| `CORS_ORIGIN` | Não         | URL(s) do frontend em produção, separadas por vírgula (ex: `https://meu-app.vercel.app`). Sem isso, aceita qualquer origem. |
+
+### 2. Frontend
+
+Rode `npm run build` dentro de `frontend/` (gera `frontend/dist`) e publique num host de arquivos
+estáticos (Vercel, Netlify, Cloudflare Pages, etc.):
+
+- `vercel.json` e `public/_redirects` já estão prontos para Vercel e Netlify (garantem que
+  atualizar a página em qualquer tela, como `/categorias`, não dê erro 404).
+- Defina a variável de ambiente de build `VITE_API_BASE_URL` com a URL da API publicada (ex:
+  `https://minha-api.onrender.com/api`), já que frontend e backend ficam em domínios diferentes.
+  Veja `frontend/.env.example`.
+
+### 3. Depois de publicado
+
+Acesse a URL do frontend pelo celular e "adicione à tela inicial" para usar como app. Como os
+dados ficam no backend, entrar com a mesma conta no computador e no celular mantém tudo
+sincronizado automaticamente — não existe armazenamento local que precise ser sincronizado
+manualmente.
+
+Se quiser, posso ajudar a fazer esse deploy num provedor específico — é só indicar qual (Render,
+Railway, Vercel, etc.) e, quando chegar a hora, criar a conta/projeto lá (eu não tenho acesso a
+contas externas por conta própria).
 
 ## Importação de CSV
 

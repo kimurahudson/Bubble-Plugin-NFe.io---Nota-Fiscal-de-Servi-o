@@ -1,4 +1,7 @@
-const API_BASE = '/api'
+// Em produção, se o frontend e o backend estiverem em domínios diferentes,
+// defina VITE_API_BASE_URL (ex: https://minha-api.onrender.com/api) no build do frontend.
+// Sem essa variável, assume-se que /api é servido no mesmo domínio (via proxy).
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export class ApiError extends Error {
   status: number
