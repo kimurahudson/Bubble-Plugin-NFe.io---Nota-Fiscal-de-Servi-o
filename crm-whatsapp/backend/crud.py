@@ -1,27 +1,36 @@
+import unicodedata
 from typing import Optional
 
 from database import get_connection
 from models import ClienteCreate, ClienteUpdate, MensagemCreate, normalizar_telefone
 
 
+def _normalizar_busca(texto: str) -> str:
+    """Remove acentos e caixa para permitir busca como 'joao' encontrar 'João'."""
+    sem_acento = unicodedata.normalize("NFKD", texto)
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return sem_acento.lower()
+
+
 def listar_clientes(busca: Optional[str] = None) -> list[dict]:
     conn = get_connection()
     try:
-        if busca:
-            termo = f"%{busca.strip()}%"
-            cursor = conn.execute(
-                """
-                SELECT * FROM clientes
-                WHERE nome LIKE ? OR telefone LIKE ? OR empresa LIKE ?
-                ORDER BY nome COLLATE NOCASE
-                """,
-                (termo, termo, termo),
-            )
-        else:
-            cursor = conn.execute("SELECT * FROM clientes ORDER BY nome COLLATE NOCASE")
-        return cursor.fetchall()
+        cursor = conn.execute("SELECT * FROM clientes ORDER BY nome COLLATE NOCASE")
+        clientes = cursor.fetchall()
     finally:
         conn.close()
+
+    if not busca:
+        return clientes
+
+    termo = _normalizar_busca(busca.strip())
+    return [
+        cliente
+        for cliente in clientes
+        if termo in _normalizar_busca(cliente["nome"])
+        or termo in _normalizar_busca(cliente["telefone"])
+        or (cliente["empresa"] and termo in _normalizar_busca(cliente["empresa"]))
+    ]
 
 
 def obter_cliente(cliente_id: int) -> Optional[dict]:

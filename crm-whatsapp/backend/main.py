@@ -1,11 +1,16 @@
 import sqlite3
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 import crud
 from database import init_db
 from models import ClienteCreate, ClienteOut, ClienteUpdate, MensagemCreate, MensagemOut
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="CRM WhatsApp - API")
 
@@ -13,6 +18,14 @@ app = FastAPI(title="CRM WhatsApp - API")
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+
+
+@app.get("/")
+def painel():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ---------------------- Clientes ----------------------

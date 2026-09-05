@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM WhatsApp</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Clientes</h1>
+        <input
+          id="busca"
+          type="text"
+          placeholder="Buscar por nome, telefone ou empresa..."
+          autocomplete="off"
+        />
+      </div>
+      <ul id="lista-clientes" class="lista-clientes"></ul>
+    </aside>
+
+    <main class="chat">
+      <div id="chat-vazio" class="chat-vazio">
+        <p>Selecione um cliente para ver o histórico de conversas.</p>
+      </div>
+
+      <div id="chat-conteudo" class="chat-conteudo" hidden>
+        <header class="chat-header">
+          <div>
+            <h2 id="chat-nome"></h2>
+            <span id="chat-detalhes" class="chat-detalhes"></span>
+          </div>
+        </header>
+        <div id="chat-mensagens" class="chat-mensagens"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
