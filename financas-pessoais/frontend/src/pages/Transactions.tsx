@@ -8,6 +8,26 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7)
 }
 
+function formatMonthLabel(value: string) {
+  const [year, month] = value.split('-').map(Number)
+  const abbrev = new Date(year, month - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'short' })
+    .replace('.', '')
+  return `${abbrev.charAt(0).toUpperCase() + abbrev.slice(1)}/${year}`
+}
+
+function buildMonthOptions(selected: string) {
+  const options: string[] = []
+  const base = new Date()
+  base.setDate(1)
+  for (let i = -36; i <= 12; i++) {
+    const d = new Date(base.getFullYear(), base.getMonth() + i, 1)
+    options.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  if (!options.includes(selected)) options.push(selected)
+  return options.sort().reverse()
+}
+
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -99,12 +119,17 @@ export default function Transactions() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Mês</label>
-          <input
-            type="month"
+          <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
+          >
+            {buildMonthOptions(month).map((m) => (
+              <option key={m} value={m}>
+                {formatMonthLabel(m)}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
