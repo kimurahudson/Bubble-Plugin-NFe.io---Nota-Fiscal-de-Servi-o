@@ -5,6 +5,18 @@ extrato CSV do banco, categorize os gastos e acompanhe tudo com a mesma conta no
 computador (os dados ficam no servidor, então qualquer dispositivo logado vê as mesmas informações
 sempre atualizadas).
 
+## Em produção
+
+| Camada | Serviço | URL |
+|---|---|---|
+| App (frontend) | Vercel | https://frontend-one-beta-mvqrqw6p2i.vercel.app |
+| API (backend) | Render | https://bubble-plugin-nfe-io-nota-fiscal-de.onrender.com |
+| Banco de dados | Turso | financeapp-kimurasan |
+
+No plano gratuito do Render, o backend "dorme" após alguns minutos sem uso e demora ~30-60s para
+responder na primeira requisição seguinte — não é um erro, é só a demora de "acordar"; os dados
+continuam seguros no Turso.
+
 ## Estrutura
 
 ```
