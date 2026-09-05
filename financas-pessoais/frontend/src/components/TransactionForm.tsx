@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useData } from '../context/DataContext'
+import { parseBrDate } from '../utils/parse'
 import type { Transaction, TransactionInput, TransactionType } from '../types'
 
 interface Props {
@@ -12,9 +13,24 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function isoToBr(iso: string) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+// Formata os dígitos digitados como dd/mm/aaaa (mesmo em celulares onde o
+// seletor nativo de data varia de formato/tamanho conforme o idioma do aparelho).
+function maskDateInput(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  const day = digits.slice(0, 2)
+  const month = digits.slice(2, 4)
+  const year = digits.slice(4, 8)
+  return [day, month, year].filter(Boolean).join('/')
+}
+
 export default function TransactionForm({ initial, onCancel, onSubmit }: Props) {
   const { categories, banks } = useData()
-  const [date, setDate] = useState(initial?.date ?? today())
+  const [dateText, setDateText] = useState(isoToBr(initial?.date ?? today()))
   const [description, setDescription] = useState(initial?.description ?? '')
   const [value, setValue] = useState(initial ? String(initial.value) : '')
   const [type, setType] = useState<TransactionType>(initial?.type ?? 'despesa')
@@ -35,6 +51,11 @@ export default function TransactionForm({ initial, onCancel, onSubmit }: Props) 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    const date = parseBrDate(dateText)
+    if (!date) {
+      setError('Informe uma data válida no formato dd/mm/aaaa')
+      return
+    }
     const numValue = Number(value.replace(',', '.'))
     if (Number.isNaN(numValue) || numValue <= 0) {
       setError('Informe um valor válido maior que zero')
@@ -107,10 +128,13 @@ export default function TransactionForm({ initial, onCancel, onSubmit }: Props) 
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
                 required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={dateText}
+                onChange={(e) => setDateText(maskDateInput(e.target.value))}
+                placeholder="dd/mm/aaaa"
+                maxLength={10}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-lime"
               />
             </div>
