@@ -44,7 +44,7 @@ function validatePayload(body, isPartial) {
 }
 
 // GET /api/transactions?month=2026-09&categoryId=&bankId=&type=
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { month, categoryId, bankId, type } = req.query;
   let sql = 'SELECT * FROM transactions WHERE user_id = ?';
   const params = [req.userId];
@@ -67,11 +67,11 @@ router.get('/', (req, res) => {
   }
   sql += ' ORDER BY date DESC, id DESC';
 
-  const rows = db.prepare(sql).all(...params);
+  const rows = await db.all(sql, params);
   res.json({ transactions: rows.map(serialize) });
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const body = req.body || {};
   const errors = validatePayload(body, false);
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
@@ -80,13 +80,11 @@ router.post('/', (req, res) => {
   const installment = Number.isInteger(body.installment) ? body.installment : 1;
   const installmentTotal = Number.isInteger(body.installmentTotal) ? body.installmentTotal : 1;
 
-  const info = db
-    .prepare(
-      `INSERT INTO transactions
-        (user_id, date, description, value_cents, type, installment, installment_total, category_id, bank_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+  const info = await db.run(
+    `INSERT INTO transactions
+      (user_id, date, description, value_cents, type, installment, installment_total, category_id, bank_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
       req.userId,
       body.date,
       (body.description || '').trim(),
@@ -95,18 +93,20 @@ router.post('/', (req, res) => {
       installment,
       installmentTotal,
       body.categoryId || null,
-      body.bankId || null
-    );
+      body.bankId || null,
+    ]
+  );
 
-  const row = db.prepare('SELECT * FROM transactions WHERE id = ?').get(info.lastInsertRowid);
+  const row = await db.get('SELECT * FROM transactions WHERE id = ?', [info.lastInsertRowid]);
   res.status(201).json({ transaction: serialize(row) });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const existing = db
-    .prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?')
-    .get(id, req.userId);
+  const existing = await db.get('SELECT * FROM transactions WHERE id = ? AND user_id = ?', [
+    id,
+    req.userId,
+  ]);
   if (!existing) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
   const body = req.body || {};
@@ -125,79 +125,78 @@ router.put('/:id', (req, res) => {
     bank_id: body.bankId !== undefined ? body.bankId : existing.bank_id,
   };
 
-  db.prepare(
+  await db.run(
     `UPDATE transactions SET date=?, description=?, value_cents=?, type=?, installment=?,
      installment_total=?, category_id=?, bank_id=?, updated_at=datetime('now')
-     WHERE id=? AND user_id=?`
-  ).run(
-    merged.date,
-    merged.description,
-    merged.value_cents,
-    merged.type,
-    merged.installment,
-    merged.installment_total,
-    merged.category_id,
-    merged.bank_id,
-    id,
-    req.userId
+     WHERE id=? AND user_id=?`,
+    [
+      merged.date,
+      merged.description,
+      merged.value_cents,
+      merged.type,
+      merged.installment,
+      merged.installment_total,
+      merged.category_id,
+      merged.bank_id,
+      id,
+      req.userId,
+    ]
   );
 
-  const row = db.prepare('SELECT * FROM transactions WHERE id = ?').get(id);
+  const row = await db.get('SELECT * FROM transactions WHERE id = ?', [id]);
   res.json({ transaction: serialize(row) });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const existing = db
-    .prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?')
-    .get(id, req.userId);
+  const existing = await db.get('SELECT * FROM transactions WHERE id = ? AND user_id = ?', [
+    id,
+    req.userId,
+  ]);
   if (!existing) return res.status(404).json({ error: 'Lançamento não encontrado' });
 
-  db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(id, req.userId);
+  await db.run('DELETE FROM transactions WHERE id = ? AND user_id = ?', [id, req.userId]);
   res.status(204).end();
 });
 
 // POST /api/transactions/bulk  { transactions: [...] }  -- usado pela importação de CSV
-router.post('/bulk', (req, res) => {
+router.post('/bulk', async (req, res) => {
   const list = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
   if (!list.length) return res.status(400).json({ error: 'Nenhum lançamento enviado' });
 
-  const insert = db.prepare(
-    `INSERT INTO transactions
-      (user_id, date, description, value_cents, type, installment, installment_total, category_id, bank_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+  const statements = [];
+  for (const item of list) {
+    const errs = validatePayload(item, false);
+    if (errs.length) return res.status(400).json({ error: 'Erro ao importar: ' + errs.join('; ') });
 
-  const results = [];
-  const insertMany = db.transaction((items) => {
-    for (const item of items) {
-      const errs = validatePayload(item, false);
-      if (errs.length) throw new Error(errs.join('; '));
-      const cents = toCents(item.value);
-      const info = insert.run(
+    statements.push({
+      sql: `INSERT INTO transactions
+        (user_id, date, description, value_cents, type, installment, installment_total, category_id, bank_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
         req.userId,
         item.date,
         (item.description || '').trim(),
-        cents,
+        toCents(item.value),
         item.type,
         Number.isInteger(item.installment) ? item.installment : 1,
         Number.isInteger(item.installmentTotal) ? item.installmentTotal : 1,
         item.categoryId || null,
-        item.bankId || null
-      );
-      results.push(info.lastInsertRowid);
-    }
-  });
+        item.bankId || null,
+      ],
+    });
+  }
 
+  let results;
   try {
-    insertMany(list);
+    results = await db.client.batch(statements, 'write');
   } catch (err) {
     return res.status(400).json({ error: 'Erro ao importar: ' + err.message });
   }
 
-  const rows = db
-    .prepare(`SELECT * FROM transactions WHERE id IN (${results.map(() => '?').join(',')})`)
-    .all(...results);
+  const ids = results.map((r) => Number(r.lastInsertRowid));
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await db.all(`SELECT * FROM transactions WHERE id IN (${placeholders})`, ids);
   res.status(201).json({ transactions: rows.map(serialize), count: rows.length });
 });
 

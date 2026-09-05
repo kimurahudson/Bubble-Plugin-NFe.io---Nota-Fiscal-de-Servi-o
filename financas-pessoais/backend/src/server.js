@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+const db = require('./db');
 const authRoutes = require('./routes/auth.routes');
 const categoriesRoutes = require('./routes/categories.routes');
 const banksRoutes = require('./routes/banks.routes');
@@ -37,6 +38,14 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`API rodando em http://localhost:${PORT}`);
-});
+
+db.migrate()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`API rodando em http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Falha ao inicializar o banco de dados:', err);
+    process.exit(1);
+  });

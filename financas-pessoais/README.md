@@ -9,9 +9,14 @@ sempre atualizadas).
 
 ```
 financas-pessoais/
-├── backend/     API REST (Node.js + Express + SQLite)
+├── backend/     API REST (Node.js + Express + SQLite/Turso)
 └── frontend/    App web (React + Vite + Tailwind, responsivo e instalável como PWA)
 ```
+
+O backend usa [libSQL](https://turso.tech/libsql) (SQLite): em desenvolvimento local grava num
+arquivo `.db` normalmente; em produção, aponta para um banco Turso (SQLite hospedado com camada
+gratuita permanente), para os dados nunca serem perdidos mesmo em hospedagens cujo disco não é
+persistente.
 
 ## Funcionalidades
 
@@ -50,45 +55,63 @@ O app abre em `http://localhost:5173` e já usa um proxy para a API em `/api`.
 
 ## Deploy (para acessar do celular e do computador pela internet)
 
-O app foi feito para funcionar com backend e frontend hospedados separadamente, em domínios
-diferentes.
+Caminho recomendado, **100% gratuito e sem cartão de crédito**: banco de dados no **Turso**,
+backend no **Render** e frontend no **Vercel**. Como cada um desses serviços exige login na sua
+própria conta (GitHub, Google, etc.), esses passos precisam ser feitos por você mesmo(a) no seu
+navegador — eu não tenho como fazer login nessas contas por você. Depois de criado o projeto em
+cada serviço, os deploys seguintes acontecem sozinhos a cada `git push`.
 
-### 1. Backend
+### 1. Banco de dados (Turso)
 
-Publique a pasta `backend/` em qualquer serviço que rode Node.js com disco persistente (Render,
-Railway, Fly.io, um VPS, etc.). Já existe um `Dockerfile` pronto em `backend/Dockerfile`, então
-qualquer provedor que aceite Docker funciona sem configuração extra.
+1. Crie uma conta gratuita em [turso.tech](https://turso.tech) (login com GitHub ou e-mail).
+2. Crie um banco de dados novo (qualquer nome, ex: `financas-pessoais`).
+3. Copie a **Database URL** (algo como `libsql://financas-pessoais-seuusuario.turso.io`) e gere um
+   **auth token** — ambos ficam disponíveis no painel do banco.
 
-Variáveis de ambiente:
+### 2. Backend (Render)
 
-| Variável      | Obrigatória | Descrição                                                        |
-|---------------|-------------|-------------------------------------------------------------------|
-| `JWT_SECRET`  | Sim         | Segredo longo e aleatório para assinar os tokens de login          |
-| `PORT`        | Não         | Porta da API (padrão 4000; a maioria dos provedores já define)     |
-| `DATA_DIR`    | Não         | Onde salvar o banco SQLite (padrão `./data`; no Docker use `/data`, montando um volume persistente) |
-| `CORS_ORIGIN` | Não         | URL(s) do frontend em produção, separadas por vírgula (ex: `https://meu-app.vercel.app`). Sem isso, aceita qualquer origem. |
+1. Crie uma conta gratuita em [render.com](https://render.com) e conecte sua conta do GitHub.
+2. "New +" → "Web Service" → selecione este repositório e a branch
+   `claude/personal-finance-app-sync-2dtna8` (ou `main`, depois que este código for mesclado).
+3. Em "Root Directory" coloque `financas-pessoais/backend`. O Render detecta o `Dockerfile`
+   automaticamente (ambiente "Docker").
+4. Em "Environment Variables", adicione:
+   - `JWT_SECRET`: qualquer texto longo e aleatório
+   - `TURSO_DATABASE_URL`: a Database URL copiada no passo anterior
+   - `TURSO_AUTH_TOKEN`: o auth token copiado no passo anterior
+5. Deploy. Ao terminar, copie a URL gerada (algo como `https://financas-pessoais-api.onrender.com`).
 
-### 2. Frontend
+> No plano gratuito do Render o serviço "dorme" após alguns minutos sem uso e demora ~1 minuto para
+> acordar na próxima visita — isso é só uma demora inicial, os dados continuam seguros no Turso.
 
-Rode `npm run build` dentro de `frontend/` (gera `frontend/dist`) e publique num host de arquivos
-estáticos (Vercel, Netlify, Cloudflare Pages, etc.):
+### 3. Frontend (Vercel)
 
-- `vercel.json` e `public/_redirects` já estão prontos para Vercel e Netlify (garantem que
-  atualizar a página em qualquer tela, como `/categorias`, não dê erro 404).
-- Defina a variável de ambiente de build `VITE_API_BASE_URL` com a URL da API publicada (ex:
-  `https://minha-api.onrender.com/api`), já que frontend e backend ficam em domínios diferentes.
-  Veja `frontend/.env.example`.
+1. Crie uma conta gratuita em [vercel.com](https://vercel.com) e conecte sua conta do GitHub.
+2. "Add New..." → "Project" → selecione o mesmo repositório.
+3. Em "Root Directory" coloque `financas-pessoais/frontend` (framework Vite é detectado
+   automaticamente).
+4. Em "Environment Variables", adicione `VITE_API_BASE_URL` com a URL do backend + `/api` (ex:
+   `https://financas-pessoais-api.onrender.com/api`).
+5. Deploy. Copie a URL gerada (algo como `https://financas-pessoais.vercel.app`).
 
-### 3. Depois de publicado
+### 4. Últimos ajustes
 
-Acesse a URL do frontend pelo celular e "adicione à tela inicial" para usar como app. Como os
-dados ficam no backend, entrar com a mesma conta no computador e no celular mantém tudo
-sincronizado automaticamente — não existe armazenamento local que precise ser sincronizado
-manualmente.
+Volte no Render e adicione a variável `CORS_ORIGIN` com a URL do Vercel (ex:
+`https://financas-pessoais.vercel.app`), depois clique em "Manual Deploy" para reiniciar o
+backend com essa configuração.
 
-Se quiser, posso ajudar a fazer esse deploy num provedor específico — é só indicar qual (Render,
-Railway, Vercel, etc.) e, quando chegar a hora, criar a conta/projeto lá (eu não tenho acesso a
-contas externas por conta própria).
+### 5. Pronto
+
+Acesse a URL do Vercel pelo celular e "adicione à tela inicial" para usar como app. Como os dados
+ficam no Turso (não no celular nem no computador), entrar com a mesma conta nos dois lugares
+mantém tudo sincronizado automaticamente.
+
+### Alternativas
+
+Qualquer serviço que rode Docker (Railway, Fly.io, um VPS) também funciona para o backend — o
+`Dockerfile` já está pronto. Para o frontend, qualquer host de arquivos estáticos (Netlify,
+Cloudflare Pages) funciona; `vercel.json` e `public/_redirects` já cobrem o fallback de rotas para
+Vercel e Netlify.
 
 ## Importação de CSV
 

@@ -5,24 +5,25 @@ const { requireAuth } = require('../auth');
 const router = express.Router();
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
-  const rows = db
-    .prepare('SELECT * FROM categories WHERE user_id = ? ORDER BY type, name')
-    .all(req.userId);
+router.get('/', async (req, res) => {
+  const rows = await db.all('SELECT * FROM categories WHERE user_id = ? ORDER BY type, name', [
+    req.userId,
+  ]);
   res.json({ categories: rows });
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, type, color } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: 'Informe o nome da categoria' });
   if (!['receita', 'despesa'].includes(type))
     return res.status(400).json({ error: 'Tipo deve ser receita ou despesa' });
 
   try {
-    const info = db
-      .prepare('INSERT INTO categories (user_id, name, type, color) VALUES (?, ?, ?, ?)')
-      .run(req.userId, name.trim(), type, color || '#323e48');
-    const row = db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid);
+    const info = await db.run(
+      'INSERT INTO categories (user_id, name, type, color) VALUES (?, ?, ?, ?)',
+      [req.userId, name.trim(), type, color || '#323e48']
+    );
+    const row = await db.get('SELECT * FROM categories WHERE id = ?', [info.lastInsertRowid]);
     res.status(201).json({ category: row });
   } catch (err) {
     if (String(err.message).includes('UNIQUE'))
@@ -31,11 +32,12 @@ router.post('/', (req, res) => {
   }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const existing = db
-    .prepare('SELECT * FROM categories WHERE id = ? AND user_id = ?')
-    .get(id, req.userId);
+  const existing = await db.get('SELECT * FROM categories WHERE id = ? AND user_id = ?', [
+    id,
+    req.userId,
+  ]);
   if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' });
 
   const { name, type, color } = req.body || {};
@@ -44,14 +46,14 @@ router.put('/:id', (req, res) => {
   const newColor = color || existing.color;
 
   try {
-    db.prepare('UPDATE categories SET name = ?, type = ?, color = ? WHERE id = ? AND user_id = ?').run(
+    await db.run('UPDATE categories SET name = ?, type = ?, color = ? WHERE id = ? AND user_id = ?', [
       newName,
       newType,
       newColor,
       id,
-      req.userId
-    );
-    const row = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+      req.userId,
+    ]);
+    const row = await db.get('SELECT * FROM categories WHERE id = ?', [id]);
     res.json({ category: row });
   } catch (err) {
     if (String(err.message).includes('UNIQUE'))
@@ -60,14 +62,15 @@ router.put('/:id', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const existing = db
-    .prepare('SELECT * FROM categories WHERE id = ? AND user_id = ?')
-    .get(id, req.userId);
+  const existing = await db.get('SELECT * FROM categories WHERE id = ? AND user_id = ?', [
+    id,
+    req.userId,
+  ]);
   if (!existing) return res.status(404).json({ error: 'Categoria não encontrada' });
 
-  db.prepare('DELETE FROM categories WHERE id = ? AND user_id = ?').run(id, req.userId);
+  await db.run('DELETE FROM categories WHERE id = ? AND user_id = ?', [id, req.userId]);
   res.status(204).end();
 });
 
