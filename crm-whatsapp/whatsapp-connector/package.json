@@ -1,0 +1,16 @@
+{
+  "name": "whatsapp-connector",
+  "version": "1.0.0",
+  "description": "Conector que liga o WhatsApp Web ao backend do CRM local",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
