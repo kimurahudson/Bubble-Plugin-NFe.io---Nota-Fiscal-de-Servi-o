@@ -49,7 +49,10 @@ export default function Layout() {
         </div>
       </aside>
 
-      <header className="md:hidden flex items-center justify-between bg-brand-dark px-4 py-3">
+      <header
+        className="md:hidden flex items-center justify-between bg-brand-dark px-4 pb-3"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+      >
         <div>
           <p className="text-white font-bold text-base leading-tight">Finanças Pessoais</p>
         </div>
