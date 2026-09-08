@@ -7,6 +7,7 @@ import Transactions from './pages/Transactions'
 import Categories from './pages/Categories'
 import Banks from './pages/Banks'
 import ImportCsv from './pages/ImportCsv'
+import Security from './pages/Security'
 
 function PrivateArea() {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="importar" element={<ImportCsv />} />
           <Route path="categorias" element={<Categories />} />
           <Route path="bancos" element={<Banks />} />
+          <Route path="seguranca" element={<Security />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

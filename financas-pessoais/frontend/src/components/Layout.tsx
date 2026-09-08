@@ -6,6 +6,7 @@ const navItems = [
   { to: '/importar', label: 'Importar CSV', icon: '📥' },
   { to: '/categorias', label: 'Categorias', icon: '🏷️' },
   { to: '/bancos', label: 'Bancos', icon: '🏦' },
+  { to: '/seguranca', label: 'Segurança', icon: '🔒' },
 ]
 
 function linkClasses(isActive: boolean) {

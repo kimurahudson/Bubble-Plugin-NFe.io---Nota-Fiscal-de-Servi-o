@@ -6,6 +6,25 @@ export interface User {
   email: string
 }
 
+export interface LoginResult {
+  token?: string
+  user?: User
+  requires2fa?: boolean
+  devicePending?: boolean
+  deviceLabel?: string
+}
+
+export type DeviceStatus = 'pending' | 'trusted' | 'revoked'
+
+export interface Device {
+  id: number
+  label: string
+  status: DeviceStatus
+  createdAt: string
+  lastSeenAt: string
+  isCurrent: boolean
+}
+
 export interface Category {
   id: number
   name: string

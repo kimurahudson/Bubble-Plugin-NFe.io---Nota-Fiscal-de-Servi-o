@@ -16,6 +16,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "otpauth": "^9.5.2",
+    "qrcode": "^1.5.4"
   }
 }

@@ -1,3 +1,5 @@
+import { getDeviceToken } from './deviceToken'
+
 // Em produção, se o frontend e o backend estiverem em domínios diferentes,
 // defina VITE_API_BASE_URL (ex: https://minha-api.onrender.com/api) no build do frontend.
 // Sem essa variável, assume-se que /api é servido no mesmo domínio (via proxy).
@@ -21,6 +23,7 @@ async function request<T>(
 ): Promise<T> {
   const { auth = true, headers, ...rest } = options
   const finalHeaders: Record<string, string> = {
+    'X-Device-Token': getDeviceToken(),
     ...(headers as Record<string, string>),
   }
   const isFormData = rest.body instanceof FormData

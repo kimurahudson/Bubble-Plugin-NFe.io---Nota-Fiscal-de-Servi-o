@@ -44,6 +44,17 @@ async function all(sql, args = []) {
   return result.rows;
 }
 
+// Adiciona uma coluna a uma tabela já existente somente se ela ainda não existir —
+// permite evoluir o schema sem apagar dados de bancos (como o de produção no Turso)
+// criados antes da coluna existir.
+async function ensureColumn(table, column, definition) {
+  const info = await all(`PRAGMA table_info(${table})`);
+  const exists = info.some((col) => col.name === column);
+  if (!exists) {
+    await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 async function migrate() {
   try {
     await client.execute('PRAGMA foreign_keys = ON');
@@ -96,7 +107,36 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
     CREATE INDEX IF NOT EXISTS idx_banks_user ON banks(user_id);
+
+    CREATE TABLE IF NOT EXISTS devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL DEFAULT 'Dispositivo',
+      status TEXT NOT NULL CHECK (status IN ('pending', 'trusted', 'revoked')) DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS recovery_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
+    CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
   `);
+
+  await ensureColumn('users', 'totp_secret', 'TEXT');
+  await ensureColumn('users', 'totp_pending_secret', 'TEXT');
+  await ensureColumn('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0');
+  // Marca que a conta já teve seu primeiro dispositivo confiado automaticamente.
+  // Uma vez ligado, nunca mais volta a 0 — mesmo que todos os dispositivos sejam
+  // revogados depois, evitando reabrir a porta para "qualquer um vira o primeiro".
+  await ensureColumn('users', 'devices_bootstrapped', 'INTEGER NOT NULL DEFAULT 0');
 }
 
 module.exports = { client, run, get, all, migrate };

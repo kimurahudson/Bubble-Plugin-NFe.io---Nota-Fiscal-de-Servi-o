@@ -8,6 +8,8 @@ const categoriesRoutes = require('./routes/categories.routes');
 const banksRoutes = require('./routes/banks.routes');
 const transactionsRoutes = require('./routes/transactions.routes');
 const importRoutes = require('./routes/import.routes');
+const twofaRoutes = require('./routes/twofa.routes');
+const devicesRoutes = require('./routes/devices.routes');
 
 const app = express();
 
@@ -31,6 +33,8 @@ app.use('/api/categories', categoriesRoutes);
 app.use('/api/banks', banksRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/2fa', twofaRoutes);
+app.use('/api/devices', devicesRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
