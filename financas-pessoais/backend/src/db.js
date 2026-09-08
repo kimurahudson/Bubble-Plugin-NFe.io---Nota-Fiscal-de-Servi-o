@@ -55,6 +55,18 @@ async function ensureColumn(table, column, definition) {
   }
 }
 
+// Executa uma migração pontual (que não pode ser expressa como CREATE TABLE IF NOT
+// EXISTS / ALTER TABLE ADD COLUMN) uma única vez, registrando em schema_migrations.
+async function runOnce(name, fn) {
+  await client.execute(
+    "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  );
+  const existing = await get('SELECT name FROM schema_migrations WHERE name = ?', [name]);
+  if (existing) return;
+  await fn();
+  await run('INSERT INTO schema_migrations (name) VALUES (?)', [name]);
+}
+
 async function migrate() {
   try {
     await client.execute('PRAGMA foreign_keys = ON');
@@ -111,11 +123,12 @@ async function migrate() {
     CREATE TABLE IF NOT EXISTS devices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      token_hash TEXT NOT NULL UNIQUE,
+      token_hash TEXT NOT NULL,
       label TEXT NOT NULL DEFAULT 'Dispositivo',
       status TEXT NOT NULL CHECK (status IN ('pending', 'trusted', 'revoked')) DEFAULT 'pending',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, token_hash)
     );
 
     CREATE TABLE IF NOT EXISTS recovery_codes (
@@ -150,6 +163,29 @@ async function migrate() {
   // revogados depois, evitando reabrir a porta para "qualquer um vira o primeiro".
   await ensureColumn('users', 'devices_bootstrapped', 'INTEGER NOT NULL DEFAULT 0');
   await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
+
+  // Bancos criados antes desta correção têm token_hash como UNIQUE sozinho (errado:
+  // impede que duas contas diferentes usem o mesmo navegador). Reconstrói a tabela
+  // com a chave única composta (user_id, token_hash), preservando todas as linhas.
+  await runOnce('devices_composite_unique_token_hash', async () => {
+    await client.executeMultiple(`
+      CREATE TABLE devices_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT 'Dispositivo',
+        status TEXT NOT NULL CHECK (status IN ('pending', 'trusted', 'revoked')) DEFAULT 'pending',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(user_id, token_hash)
+      );
+      INSERT INTO devices_new (id, user_id, token_hash, label, status, created_at, last_seen_at)
+        SELECT id, user_id, token_hash, label, status, created_at, last_seen_at FROM devices;
+      DROP TABLE devices;
+      ALTER TABLE devices_new RENAME TO devices;
+      CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
+    `);
+  });
 }
 
 module.exports = { client, run, get, all, migrate };
