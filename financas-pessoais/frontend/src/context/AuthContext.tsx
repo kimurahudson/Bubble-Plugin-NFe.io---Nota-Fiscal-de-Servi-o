@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, setToken, getToken } from '../api'
 import type { User } from '../types'
 
@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   completeAuth: (token: string, user: User) => void
+  refreshUser: () => Promise<void>
   logout: () => void
 }
 
@@ -33,13 +34,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(user)
   }
 
+  const refreshUser = useCallback(async () => {
+    if (!getToken()) return
+    const res = await api.get<{ user: User }>('/auth/me')
+    setUser(res.user)
+  }, [])
+
   function logout() {
     setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, completeAuth, logout }}>
+    <AuthContext.Provider value={{ user, loading, completeAuth, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   )

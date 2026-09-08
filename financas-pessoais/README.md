@@ -33,6 +33,9 @@ persistente.
 ## Funcionalidades
 
 - Cadastro/login por e-mail e senha (cada usuário só vê os próprios dados)
+- Verificação em duas etapas (TOTP, via app autenticador) opcional, com códigos de recuperação
+- Dispositivos novos só entram depois de aprovados a partir de um dispositivo já confiável
+- Confirmação de e-mail no cadastro e recuperação de senha por link enviado por e-mail
 - Lançamentos manuais de receitas e despesas com: Data, Valor, Parcela, Parcela total, Categoria e Banco
 - Incluir, alterar e excluir lançamentos, categorias e bancos
 - Importação de extrato em CSV: upload → mapeamento de colunas → pré-visualização → confirmação
@@ -80,17 +83,29 @@ cada serviço, os deploys seguintes acontecem sozinhos a cada `git push`.
 3. Copie a **Database URL** (algo como `libsql://financas-pessoais-seuusuario.turso.io`) e gere um
    **auth token** — ambos ficam disponíveis no painel do banco.
 
+### 1b. E-mail (Resend) — opcional, para confirmação de e-mail e recuperação de senha
+
+1. Crie uma conta gratuita em [resend.com](https://resend.com) (3.000 e-mails/mês grátis, sem
+   cartão). Copie a **API Key** gerada.
+2. Sem verificar um domínio próprio, o Resend só entrega e-mails para o endereço com o qual você
+   se cadastrou nele — perfeito para uso pessoal. Para permitir que outras pessoas também recebam
+   e-mails do app (cadastro/recuperação), verifique um domínio próprio no painel do Resend.
+3. Sem essa configuração, o app continua funcionando normalmente — os e-mails só aparecem no log
+   do servidor (Render → aba "Logs") em vez de serem enviados de verdade.
+
 ### 2. Backend (Render)
 
 1. Crie uma conta gratuita em [render.com](https://render.com) e conecte sua conta do GitHub.
-2. "New +" → "Web Service" → selecione este repositório e a branch
-   `claude/personal-finance-app-sync-2dtna8` (ou `main`, depois que este código for mesclado).
+2. "New +" → "Web Service" → selecione este repositório e a branch `main`.
 3. Em "Root Directory" coloque `financas-pessoais/backend`. O Render detecta o `Dockerfile`
    automaticamente (ambiente "Docker").
 4. Em "Environment Variables", adicione:
    - `JWT_SECRET`: qualquer texto longo e aleatório
    - `TURSO_DATABASE_URL`: a Database URL copiada no passo anterior
    - `TURSO_AUTH_TOKEN`: o auth token copiado no passo anterior
+   - `RESEND_API_KEY`: a API Key do Resend (opcional — veja passo 1b)
+   - `FRONTEND_URL`: a URL do frontend publicado (ex: `https://financas-pessoais.vercel.app`) —
+     usada para montar os links dos e-mails; pode ajustar depois de publicar o frontend no passo 3
 5. Deploy. Ao terminar, copie a URL gerada (algo como `https://financas-pessoais-api.onrender.com`).
 
 > No plano gratuito do Render o serviço "dorme" após alguns minutos sem uso e demora ~1 minuto para

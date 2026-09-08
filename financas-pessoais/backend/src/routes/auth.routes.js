@@ -4,6 +4,7 @@ const db = require('../db');
 const { signToken, requireAuth } = require('../auth');
 const { verifyTotpCode, hashRecoveryCode } = require('../twoFactor');
 const { hashDeviceToken, labelFromUserAgent } = require('../devices');
+const { sendVerificationEmail } = require('./verification.routes');
 
 const router = express.Router();
 
@@ -102,8 +103,14 @@ router.post('/register', async (req, res) => {
     autoTrust: false,
   });
 
+  try {
+    await sendVerificationEmail(user);
+  } catch (err) {
+    console.error('Falha ao enviar e-mail de verificação:', err);
+  }
+
   const token = signToken(user);
-  res.status(201).json({ token, user });
+  res.status(201).json({ token, user: { ...user, emailVerified: false } });
 });
 
 router.post('/login', async (req, res) => {
@@ -152,15 +159,27 @@ router.post('/login', async (req, res) => {
 
   const user = { id: row.id, name: row.name, email: row.email };
   const token = signToken(user);
-  res.json({ token, user });
+  res.json({
+    token,
+    user: { ...user, totpEnabled: !!row.totp_enabled, emailVerified: !!row.email_verified },
+  });
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  const row = await db.get('SELECT id, name, email, totp_enabled FROM users WHERE id = ?', [
-    req.userId,
-  ]);
+  const row = await db.get(
+    'SELECT id, name, email, totp_enabled, email_verified FROM users WHERE id = ?',
+    [req.userId]
+  );
   if (!row) return res.status(404).json({ error: 'Usuário não encontrado' });
-  res.json({ user: { id: row.id, name: row.name, email: row.email, totpEnabled: !!row.totp_enabled } });
+  res.json({
+    user: {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      totpEnabled: !!row.totp_enabled,
+      emailVerified: !!row.email_verified,
+    },
+  });
 });
 
 module.exports = router;

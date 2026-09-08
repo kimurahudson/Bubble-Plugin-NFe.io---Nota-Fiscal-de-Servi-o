@@ -8,6 +8,8 @@ import Categories from './pages/Categories'
 import Banks from './pages/Banks'
 import ImportCsv from './pages/ImportCsv'
 import Security from './pages/Security'
+import ResetPassword from './pages/ResetPassword'
+import VerifyEmail from './pages/VerifyEmail'
 
 function PrivateArea() {
   const { user, loading } = useAuth()
@@ -41,6 +43,8 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="/verificar-email" element={<VerifyEmail />} />
         <Route path="/" element={<PrivateArea />}>
           <Route index element={<Transactions />} />
           <Route path="importar" element={<ImportCsv />} />

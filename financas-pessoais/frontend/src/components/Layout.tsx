@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { api } from '../api'
 
 const navItems = [
   { to: '/', label: 'Lançamentos', icon: '📋' },
@@ -21,6 +23,37 @@ function mobileLinkClasses(isActive: boolean) {
     'flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium flex-1',
     isActive ? 'text-brand-dark' : 'text-gray-500',
   ].join(' ')
+}
+
+function VerifyEmailBanner() {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
+
+  async function resend() {
+    setStatus('sending')
+    try {
+      await api.post('/auth/resend-verification')
+      setStatus('sent')
+    } catch {
+      setStatus('idle')
+    }
+  }
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-2.5 mb-4 flex flex-wrap items-center justify-between gap-2">
+      <span>Confirme seu e-mail para manter sua conta segura.</span>
+      {status === 'sent' ? (
+        <span className="text-xs font-medium">E-mail reenviado!</span>
+      ) : (
+        <button
+          onClick={resend}
+          disabled={status === 'sending'}
+          className="text-xs font-semibold underline disabled:opacity-60"
+        >
+          {status === 'sending' ? 'Enviando...' : 'Reenviar confirmação'}
+        </button>
+      )}
+    </div>
+  )
 }
 
 export default function Layout() {
@@ -63,6 +96,7 @@ export default function Layout() {
       </header>
 
       <main className="flex-1 p-4 md:p-8 pb-28 md:pb-8 overflow-x-hidden">
+        {user?.emailVerified === false && <VerifyEmailBanner />}
         <Outlet />
       </main>
 

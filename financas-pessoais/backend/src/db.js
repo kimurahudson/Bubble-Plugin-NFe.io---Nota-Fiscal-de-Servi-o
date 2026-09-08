@@ -128,6 +128,18 @@ async function migrate() {
 
     CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
     CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
+
+    CREATE TABLE IF NOT EXISTS verification_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('email_verify', 'password_reset')),
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_verification_tokens_user ON verification_tokens(user_id);
   `);
 
   await ensureColumn('users', 'totp_secret', 'TEXT');
@@ -137,6 +149,7 @@ async function migrate() {
   // Uma vez ligado, nunca mais volta a 0 — mesmo que todos os dispositivos sejam
   // revogados depois, evitando reabrir a porta para "qualquer um vira o primeiro".
   await ensureColumn('users', 'devices_bootstrapped', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0');
 }
 
 module.exports = { client, run, get, all, migrate };

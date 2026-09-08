@@ -10,6 +10,7 @@ const transactionsRoutes = require('./routes/transactions.routes');
 const importRoutes = require('./routes/import.routes');
 const twofaRoutes = require('./routes/twofa.routes');
 const devicesRoutes = require('./routes/devices.routes');
+const { router: verificationRoutes } = require('./routes/verification.routes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.json({ limit: '2mb' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', verificationRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/banks', banksRoutes);
 app.use('/api/transactions', transactionsRoutes);

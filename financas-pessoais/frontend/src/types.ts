@@ -4,6 +4,8 @@ export interface User {
   id: number
   name: string
   email: string
+  totpEnabled?: boolean
+  emailVerified?: boolean
 }
 
 export interface LoginResult {

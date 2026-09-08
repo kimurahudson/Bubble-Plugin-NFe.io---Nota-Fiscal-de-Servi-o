@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { api, ApiError } from '../api'
 import type { LoginResult, User } from '../types'
 
-type Step = 'form' | 'totp' | 'pending'
+type Step = 'form' | 'totp' | 'pending' | 'forgot'
 
 export default function Login() {
   const { completeAuth } = useAuth()
@@ -21,6 +21,8 @@ export default function Login() {
   const [deviceLabel, setDeviceLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const [forgotSent, setForgotSent] = useState(false)
 
   const attemptLoginRef = useRef<(silent?: boolean) => Promise<void>>(async () => {})
 
@@ -100,7 +102,22 @@ export default function Login() {
     setTotpCode('')
     setRecoveryCode('')
     setUseRecovery(false)
+    setForgotSent(false)
     setError(null)
+  }
+
+  async function handleForgotSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await api.post('/auth/forgot-password', { email })
+      setForgotSent(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível conectar ao servidor')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (step === 'pending') {
@@ -127,6 +144,56 @@ export default function Login() {
           <button type="button" onClick={backToForm} className="text-sm text-gray-500 underline">
             Cancelar
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'forgot') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-dark px-4">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
+          <h1 className="text-lg font-bold text-brand-dark mb-1">Esqueci minha senha</h1>
+
+          {forgotSent ? (
+            <>
+              <p className="text-gray-600 text-sm mb-6">
+                Se <strong>{email}</strong> tiver uma conta aqui, enviamos um link para redefinir a senha. Confira
+                também a caixa de spam.
+              </p>
+              <button type="button" onClick={backToForm} className="text-sm text-brand-dark underline w-full text-center">
+                Voltar para o login
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 text-sm mb-6">
+                Informe o e-mail da sua conta para receber um link de redefinição.
+              </p>
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-lime"
+                />
+                {error && <p className="text-red-600 text-sm">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-brand-dark text-white font-semibold rounded-lg py-2.5 hover:bg-brand-dark/90 disabled:opacity-60"
+                >
+                  {loading ? 'Enviando...' : 'Enviar link de redefinição'}
+                </button>
+              </form>
+              <button type="button" onClick={backToForm} className="mt-4 text-sm text-gray-500 underline w-full text-center">
+                Voltar
+              </button>
+            </>
+          )}
         </div>
       </div>
     )
@@ -229,7 +296,21 @@ export default function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Senha</label>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('forgot')
+                    setError(null)
+                  }}
+                  className="text-xs text-brand-dark underline"
+                >
+                  Esqueci minha senha
+                </button>
+              )}
+            </div>
             <input
               type="password"
               required
