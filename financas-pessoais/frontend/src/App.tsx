@@ -4,6 +4,7 @@ import { DataProvider } from './context/DataContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Transactions from './pages/Transactions'
+import Dashboard from './pages/Dashboard'
 import Categories from './pages/Categories'
 import Banks from './pages/Banks'
 import ImportCsv from './pages/ImportCsv'
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/verificar-email" element={<VerifyEmail />} />
         <Route path="/" element={<PrivateArea />}>
           <Route index element={<Transactions />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="importar" element={<ImportCsv />} />
           <Route path="categorias" element={<Categories />} />
           <Route path="bancos" element={<Banks />} />

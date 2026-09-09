@@ -1,32 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { useData } from '../context/DataContext'
 import TransactionForm from '../components/TransactionForm'
+import BulkEditForm from '../components/BulkEditForm'
+import { buildMonthOptions, currentMonth, formatMonthLabel } from '../utils/month'
 import type { Transaction, TransactionInput } from '../types'
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7)
-}
-
-function formatMonthLabel(value: string) {
-  const [year, month] = value.split('-').map(Number)
-  const abbrev = new Date(year, month - 1, 1)
-    .toLocaleDateString('pt-BR', { month: 'short' })
-    .replace('.', '')
-  return `${abbrev.charAt(0).toUpperCase() + abbrev.slice(1)}/${year}`
-}
-
-function buildMonthOptions(selected: string) {
-  const options: string[] = []
-  const base = new Date()
-  base.setDate(1)
-  for (let i = -36; i <= 12; i++) {
-    const d = new Date(base.getFullYear(), base.getMonth() + i, 1)
-    options.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
-  if (!options.includes(selected)) options.push(selected)
-  return options.sort().reverse()
-}
 
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -39,15 +18,18 @@ function formatDate(iso: string) {
 
 export default function Transactions() {
   const { categories, banks } = useData()
-  const [month, setMonth] = useState(currentMonth())
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [bankFilter, setBankFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [searchParams] = useSearchParams()
+  const [month, setMonth] = useState(searchParams.get('month') || currentMonth())
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('categoryId') || '')
+  const [bankFilter, setBankFilter] = useState(searchParams.get('bankId') || '')
+  const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || '')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showBulkForm, setShowBulkForm] = useState(false)
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories])
   const bankMap = useMemo(() => new Map(banks.map((b) => [b.id, b])), [banks])
@@ -63,6 +45,7 @@ export default function Transactions() {
       if (typeFilter) params.set('type', typeFilter)
       const res = await api.get<{ transactions: Transaction[] }>(`/transactions?${params.toString()}`)
       setTransactions(res.transactions)
+      setSelectedIds(new Set())
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao carregar lançamentos')
     } finally {
@@ -84,6 +67,21 @@ export default function Transactions() {
     return { receitas, despesas, saldo: receitas - despesas }
   }, [transactions])
 
+  const allVisibleSelected = transactions.length > 0 && selectedIds.size === transactions.length
+
+  function toggleSelectAll() {
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(transactions.map((t) => t.id)))
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   async function handleCreateOrUpdate(input: TransactionInput) {
     if (editing) {
       await api.put(`/transactions/${editing.id}`, input)
@@ -98,6 +96,12 @@ export default function Transactions() {
   async function handleDelete(id: number) {
     if (!confirm('Excluir este lançamento?')) return
     await api.del(`/transactions/${id}`)
+    await load()
+  }
+
+  async function handleBulkSubmit(input: { categoryId?: number | null; bankId?: number | null }) {
+    await api.put('/transactions/bulk', { ids: Array.from(selectedIds), ...input })
+    setShowBulkForm(false)
     await load()
   }
 
@@ -151,6 +155,7 @@ export default function Transactions() {
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Todas</option>
+            <option value="none">Sem categoria</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -203,11 +208,17 @@ export default function Transactions() {
 
       {!loading && transactions.length > 0 && (
         <>
+          <label className="flex items-center gap-2 text-xs text-gray-500 mb-2 select-none">
+            <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4" />
+            Selecionar todos os {transactions.length} lançamento(s) desta lista
+          </label>
+
           {/* Tabela (desktop) */}
           <div className="hidden md:block bg-white rounded-xl shadow overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-brand-dark text-white text-left">
+                  <th className="px-4 py-2 w-8"></th>
                   <th className="px-4 py-2 font-semibold">Data</th>
                   <th className="px-4 py-2 font-semibold">Descrição</th>
                   <th className="px-4 py-2 font-semibold">Valor</th>
@@ -219,7 +230,15 @@ export default function Transactions() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {transactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
+                  <tr key={t.id} className={selectedIds.has(t.id) ? 'bg-brand-lime/10' : 'hover:bg-gray-50'}>
+                    <td className="px-4 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(t.id)}
+                        onChange={() => toggleSelect(t.id)}
+                        className="h-4 w-4"
+                      />
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap">{formatDate(t.date)}</td>
                     <td className="px-4 py-2">{t.description || '-'}</td>
                     <td className={`px-4 py-2 font-medium ${t.type === 'receita' ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -256,9 +275,20 @@ export default function Transactions() {
           {/* Cards (mobile) */}
           <div className="md:hidden space-y-3">
             {transactions.map((t) => (
-              <div key={t.id} className="bg-white rounded-xl shadow p-4">
+              <div
+                key={t.id}
+                className={`bg-white rounded-xl shadow p-4 ${selectedIds.has(t.id) ? 'ring-2 ring-brand-lime' : ''}`}
+              >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-500">{formatDate(t.date)}</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(t.id)}
+                      onChange={() => toggleSelect(t.id)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-xs text-gray-500">{formatDate(t.date)}</span>
+                  </div>
                   <span className={`font-bold ${t.type === 'receita' ? 'text-emerald-600' : 'text-red-600'}`}>
                     {t.type === 'despesa' ? '-' : '+'}
                     {formatCurrency(t.value)}
@@ -290,6 +320,32 @@ export default function Transactions() {
         </>
       )}
 
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-16 md:bottom-4 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 z-40 bg-brand-dark text-white shadow-xl px-4 py-3 md:py-2.5 md:rounded-full text-sm">
+          <div className="flex items-center justify-between md:justify-start md:gap-3">
+            <span className="font-medium whitespace-nowrap">{selectedIds.size} selecionado(s)</span>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-white/70 underline whitespace-nowrap md:order-last"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => setShowBulkForm(true)}
+              className="hidden md:inline bg-brand-lime text-brand-dark font-semibold rounded-full px-3 py-1.5 whitespace-nowrap"
+            >
+              Alterar selecionados
+            </button>
+          </div>
+          <button
+            onClick={() => setShowBulkForm(true)}
+            className="md:hidden w-full mt-2 bg-brand-lime text-brand-dark font-semibold rounded-lg py-2"
+          >
+            Alterar selecionados
+          </button>
+        </div>
+      )}
+
       {showForm && (
         <TransactionForm
           initial={editing}
@@ -298,6 +354,14 @@ export default function Transactions() {
             setEditing(null)
           }}
           onSubmit={handleCreateOrUpdate}
+        />
+      )}
+
+      {showBulkForm && (
+        <BulkEditForm
+          count={selectedIds.size}
+          onCancel={() => setShowBulkForm(false)}
+          onSubmit={handleBulkSubmit}
         />
       )}
     </div>

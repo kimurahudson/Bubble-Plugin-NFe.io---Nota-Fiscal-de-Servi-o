@@ -53,7 +53,9 @@ router.get('/', async (req, res) => {
     sql += " AND strftime('%Y-%m', date) = ?";
     params.push(month);
   }
-  if (categoryId) {
+  if (categoryId === 'none') {
+    sql += ' AND category_id IS NULL';
+  } else if (categoryId) {
     sql += ' AND category_id = ?';
     params.push(categoryId);
   }
@@ -99,6 +101,52 @@ router.post('/', async (req, res) => {
 
   const row = await db.get('SELECT * FROM transactions WHERE id = ?', [info.lastInsertRowid]);
   res.status(201).json({ transaction: serialize(row) });
+});
+
+// PUT /api/transactions/bulk  { ids: number[], categoryId?, bankId? }
+// Precisa vir antes de PUT /:id, senão o Express casaria "bulk" como um :id.
+router.put('/bulk', async (req, res) => {
+  const { ids, categoryId, bankId } = req.body || {};
+  const idList = Array.isArray(ids) ? ids.map(Number).filter(Number.isInteger) : [];
+  if (!idList.length) return res.status(400).json({ error: 'Nenhum lançamento selecionado' });
+
+  const hasCategory = categoryId !== undefined;
+  const hasBank = bankId !== undefined;
+  if (!hasCategory && !hasBank) {
+    return res.status(400).json({ error: 'Informe ao menos um campo para alterar' });
+  }
+
+  const placeholders = idList.map(() => '?').join(',');
+  const owned = await db.all(
+    `SELECT id FROM transactions WHERE user_id = ? AND id IN (${placeholders})`,
+    [req.userId, ...idList]
+  );
+  if (owned.length !== idList.length) {
+    return res.status(404).json({ error: 'Um ou mais lançamentos não foram encontrados' });
+  }
+
+  const sets = [];
+  const args = [];
+  if (hasCategory) {
+    sets.push('category_id = ?');
+    args.push(categoryId || null);
+  }
+  if (hasBank) {
+    sets.push('bank_id = ?');
+    args.push(bankId || null);
+  }
+  sets.push("updated_at = datetime('now')");
+
+  await db.run(
+    `UPDATE transactions SET ${sets.join(', ')} WHERE user_id = ? AND id IN (${placeholders})`,
+    [...args, req.userId, ...idList]
+  );
+
+  const rows = await db.all(
+    `SELECT * FROM transactions WHERE user_id = ? AND id IN (${placeholders}) ORDER BY date DESC, id DESC`,
+    [req.userId, ...idList]
+  );
+  res.json({ transactions: rows.map(serialize), count: rows.length });
 });
 
 router.put('/:id', async (req, res) => {

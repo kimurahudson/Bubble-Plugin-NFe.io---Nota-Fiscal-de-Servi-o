@@ -4,11 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
 
 const navItems = [
-  { to: '/', label: 'Lançamentos', icon: '📋' },
-  { to: '/importar', label: 'Importar CSV', icon: '📥' },
-  { to: '/categorias', label: 'Categorias', icon: '🏷️' },
-  { to: '/bancos', label: 'Bancos', icon: '🏦' },
-  { to: '/seguranca', label: 'Segurança', icon: '🔒' },
+  { to: '/dashboard', label: 'Dashboard', mobileLabel: 'Dashboard', icon: '📊' },
+  { to: '/', label: 'Lançamentos', mobileLabel: 'Lançamentos', icon: '📋' },
+  { to: '/importar', label: 'Importar CSV', mobileLabel: 'CSV', icon: '📥' },
+  { to: '/categorias', label: 'Categorias', mobileLabel: 'Categorias', icon: '🏷️' },
+  { to: '/bancos', label: 'Bancos', mobileLabel: 'Bancos', icon: '🏦' },
+  { to: '/seguranca', label: 'Segurança', mobileLabel: 'Segurança', icon: '🔒' },
 ]
 
 function linkClasses(isActive: boolean) {
@@ -20,7 +21,7 @@ function linkClasses(isActive: boolean) {
 
 function mobileLinkClasses(isActive: boolean) {
   return [
-    'flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium flex-1',
+    'flex flex-col items-center justify-center gap-0.5 py-2 px-0.5 text-[10px] font-medium flex-1 min-w-0',
     isActive ? 'text-brand-dark' : 'text-gray-500',
   ].join(' ')
 }
@@ -106,8 +107,8 @@ export default function Layout() {
       >
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end className={({ isActive }) => mobileLinkClasses(isActive)}>
-            <span className="text-lg leading-none">{item.icon}</span>
-            {item.label}
+            <span className="text-base leading-none">{item.icon}</span>
+            <span className="whitespace-nowrap">{item.mobileLabel}</span>
           </NavLink>
         ))}
       </nav>
