@@ -63,3 +63,13 @@ export interface TransactionInput {
   categoryId: number | null
   bankId: number | null
 }
+
+export interface CategorySuggestion {
+  categoryId: number
+  categoryName: string
+  source: 'historico' | 'palavra-chave'
+}
+
+export interface TransactionSuggestion extends Transaction {
+  suggestion: CategorySuggestion | null
+}

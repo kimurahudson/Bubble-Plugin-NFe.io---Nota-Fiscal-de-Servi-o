@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../auth');
+const { suggestCategoryFor } = require('../categorySuggest');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -145,6 +146,77 @@ router.put('/bulk', async (req, res) => {
   const rows = await db.all(
     `SELECT * FROM transactions WHERE user_id = ? AND id IN (${placeholders}) ORDER BY date DESC, id DESC`,
     [req.userId, ...idList]
+  );
+  res.json({ transactions: rows.map(serialize), count: rows.length });
+});
+
+// GET /api/transactions/suggest-category?description=...&type=...
+// Sugestão pontual, usada no formulário manual enquanto o usuário digita a descrição.
+router.get('/suggest-category', async (req, res) => {
+  const { description, type } = req.query;
+  if (!description || !type) return res.json({ suggestion: null });
+  const suggestion = await suggestCategoryFor({ userId: req.userId, description, type });
+  res.json({ suggestion });
+});
+
+// GET /api/transactions/suggestions?month=2026-09
+// Lista os lançamentos sem categoria (do mês, se informado) já com a sugestão calculada.
+router.get('/suggestions', async (req, res) => {
+  const { month } = req.query;
+  let sql = 'SELECT * FROM transactions WHERE user_id = ? AND category_id IS NULL';
+  const params = [req.userId];
+  if (month) {
+    sql += " AND strftime('%Y-%m', date) = ?";
+    params.push(month);
+  }
+  sql += ' ORDER BY date DESC, id DESC';
+
+  const rows = await db.all(sql, params);
+  const items = [];
+  for (const row of rows) {
+    const suggestion = await suggestCategoryFor({
+      userId: req.userId,
+      description: row.description,
+      type: row.type,
+    });
+    items.push({ ...serialize(row), suggestion });
+  }
+  res.json({ items });
+});
+
+// PUT /api/transactions/bulk-categorize  { items: [{ id, categoryId }] }
+// Aplica, de uma vez, uma categoria diferente para cada lançamento (usado ao aceitar sugestões).
+// Precisa vir antes de PUT /:id, senão o Express casaria "bulk-categorize" como um :id.
+router.put('/bulk-categorize', async (req, res) => {
+  const items = Array.isArray(req.body?.items) ? req.body.items : [];
+  const cleaned = items
+    .map((it) => ({
+      id: Number(it?.id),
+      categoryId: it?.categoryId === null || it?.categoryId === undefined ? null : Number(it.categoryId),
+    }))
+    .filter((it) => Number.isInteger(it.id) && (it.categoryId === null || Number.isInteger(it.categoryId)));
+
+  if (!cleaned.length) return res.status(400).json({ error: 'Nenhuma sugestão para aplicar' });
+
+  const ids = cleaned.map((it) => it.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const owned = await db.all(
+    `SELECT id FROM transactions WHERE user_id = ? AND id IN (${placeholders})`,
+    [req.userId, ...ids]
+  );
+  if (owned.length !== ids.length) {
+    return res.status(404).json({ error: 'Um ou mais lançamentos não foram encontrados' });
+  }
+
+  const statements = cleaned.map((it) => ({
+    sql: "UPDATE transactions SET category_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
+    args: [it.categoryId, it.id, req.userId],
+  }));
+  await db.client.batch(statements, 'write');
+
+  const rows = await db.all(
+    `SELECT * FROM transactions WHERE user_id = ? AND id IN (${placeholders}) ORDER BY date DESC, id DESC`,
+    [req.userId, ...ids]
   );
   res.json({ transactions: rows.map(serialize), count: rows.length });
 });

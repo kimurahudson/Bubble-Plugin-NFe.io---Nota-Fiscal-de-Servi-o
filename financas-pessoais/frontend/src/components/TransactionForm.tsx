@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useData } from '../context/DataContext'
+import { api } from '../api'
 import { parseBrDate } from '../utils/parse'
-import type { Transaction, TransactionInput, TransactionType } from '../types'
+import type { CategorySuggestion, Transaction, TransactionInput, TransactionType } from '../types'
 
 interface Props {
   initial?: Transaction | null
@@ -40,6 +41,7 @@ export default function TransactionForm({ initial, onCancel, onSubmit }: Props) 
   const [bankId, setBankId] = useState<number | ''>(initial?.bankId ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null)
 
   useEffect(() => {
     // Se o tipo mudar, limpa categoria incompatível
@@ -47,6 +49,29 @@ export default function TransactionForm({ initial, onCancel, onSubmit }: Props) 
     const cat = categories.find((c) => c.id === categoryId)
     if (cat && cat.type !== type) setCategoryId('')
   }, [type, categoryId, categories])
+
+  useEffect(() => {
+    if (categoryId !== '' || description.trim().length < 3) {
+      setSuggestion(null)
+      return
+    }
+    let active = true
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ description: description.trim(), type })
+      api
+        .get<{ suggestion: CategorySuggestion | null }>(`/transactions/suggest-category?${params.toString()}`)
+        .then((res) => {
+          if (active) setSuggestion(res.suggestion)
+        })
+        .catch(() => {
+          if (active) setSuggestion(null)
+        })
+    }, 500)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [description, type, categoryId])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -160,6 +185,23 @@ export default function TransactionForm({ initial, onCancel, onSubmit }: Props) 
               placeholder="Ex: Supermercado, Salário..."
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-lime"
             />
+            {suggestion && (
+              <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
+                <span>
+                  Sugestão: <span className="font-medium text-brand-dark">{suggestion.categoryName}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(suggestion.categoryId)
+                    setSuggestion(null)
+                  }}
+                  className="text-brand-dark font-semibold underline"
+                >
+                  Usar
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

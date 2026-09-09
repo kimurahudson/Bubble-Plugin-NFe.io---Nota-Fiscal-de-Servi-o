@@ -4,6 +4,7 @@ import { api, ApiError } from '../api'
 import { useData } from '../context/DataContext'
 import TransactionForm from '../components/TransactionForm'
 import BulkEditForm from '../components/BulkEditForm'
+import CategorySuggestions from '../components/CategorySuggestions'
 import { buildMonthOptions, currentMonth, formatMonthLabel } from '../utils/month'
 import type { Transaction, TransactionInput } from '../types'
 
@@ -14,6 +15,17 @@ function formatCurrency(value: number) {
 function formatDate(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+type SortOption = 'data-desc' | 'data-asc' | 'descricao-asc' | 'descricao-desc' | 'categoria-asc' | 'sem-categoria'
+
+const SORT_LABELS: Record<SortOption, string> = {
+  'data-desc': 'Data (mais recente)',
+  'data-asc': 'Data (mais antiga)',
+  'descricao-asc': 'Descrição (A-Z)',
+  'descricao-desc': 'Descrição (Z-A)',
+  'categoria-asc': 'Categoria (A-Z)',
+  'sem-categoria': 'Sem categoria primeiro',
 }
 
 export default function Transactions() {
@@ -30,6 +42,8 @@ export default function Transactions() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showBulkForm, setShowBulkForm] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [sortBy, setSortBy] = useState<SortOption>('data-desc')
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories])
   const bankMap = useMemo(() => new Map(banks.map((b) => [b.id, b])), [banks])
@@ -66,6 +80,36 @@ export default function Transactions() {
     }
     return { receitas, despesas, saldo: receitas - despesas }
   }, [transactions])
+
+  const sortedTransactions = useMemo(() => {
+    const list = [...transactions]
+    const categoryName = (t: Transaction) => (t.categoryId ? categoryMap.get(t.categoryId)?.name ?? '' : '')
+    switch (sortBy) {
+      case 'data-asc':
+        return list.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+      case 'descricao-asc':
+        return list.sort((a, b) => a.description.localeCompare(b.description, 'pt-BR'))
+      case 'descricao-desc':
+        return list.sort((a, b) => b.description.localeCompare(a.description, 'pt-BR'))
+      case 'categoria-asc':
+        return list.sort((a, b) => {
+          const nameA = categoryName(a)
+          const nameB = categoryName(b)
+          if (!nameA && nameB) return 1
+          if (nameA && !nameB) return -1
+          return nameA.localeCompare(nameB, 'pt-BR') || b.date.localeCompare(a.date)
+        })
+      case 'sem-categoria':
+        return list.sort((a, b) => {
+          const aNone = a.categoryId ? 1 : 0
+          const bNone = b.categoryId ? 1 : 0
+          return aNone - bNone || b.date.localeCompare(a.date)
+        })
+      case 'data-desc':
+      default:
+        return list.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
+    }
+  }, [transactions, sortBy, categoryMap])
 
   const allVisibleSelected = transactions.length > 0 && selectedIds.size === transactions.length
 
@@ -105,22 +149,35 @@ export default function Transactions() {
     await load()
   }
 
+  async function handleSuggestionsApplied() {
+    setShowSuggestions(false)
+    await load()
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-brand-dark">Lançamentos</h1>
-        <button
-          onClick={() => {
-            setEditing(null)
-            setShowForm(true)
-          }}
-          className="bg-brand-lime text-brand-dark font-semibold text-sm rounded-lg px-4 py-2 hover:brightness-95"
-        >
-          + Novo lançamento
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowSuggestions(true)}
+            className="bg-white border border-gray-300 text-brand-dark font-semibold text-sm rounded-lg px-4 py-2 hover:bg-gray-50"
+          >
+            Sugerir categorias
+          </button>
+          <button
+            onClick={() => {
+              setEditing(null)
+              setShowForm(true)
+            }}
+            className="bg-brand-lime text-brand-dark font-semibold text-sm rounded-lg px-4 py-2 hover:brightness-95"
+          >
+            + Novo lançamento
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Mês</label>
           <select
@@ -178,6 +235,20 @@ export default function Transactions() {
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Ordenar por</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            {Object.entries(SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -229,7 +300,7 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {transactions.map((t) => (
+                {sortedTransactions.map((t) => (
                   <tr key={t.id} className={selectedIds.has(t.id) ? 'bg-brand-lime/10' : 'hover:bg-gray-50'}>
                     <td className="px-4 py-2">
                       <input
@@ -274,7 +345,7 @@ export default function Transactions() {
 
           {/* Cards (mobile) */}
           <div className="md:hidden space-y-3">
-            {transactions.map((t) => (
+            {sortedTransactions.map((t) => (
               <div
                 key={t.id}
                 className={`bg-white rounded-xl shadow p-4 ${selectedIds.has(t.id) ? 'ring-2 ring-brand-lime' : ''}`}
@@ -363,6 +434,10 @@ export default function Transactions() {
           onCancel={() => setShowBulkForm(false)}
           onSubmit={handleBulkSubmit}
         />
+      )}
+
+      {showSuggestions && (
+        <CategorySuggestions onCancel={() => setShowSuggestions(false)} onApplied={handleSuggestionsApplied} />
       )}
     </div>
   )
