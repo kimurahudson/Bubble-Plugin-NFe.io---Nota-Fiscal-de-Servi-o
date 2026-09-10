@@ -20,6 +20,16 @@ export function parseBrDate(raw: string): string | null {
   return null
 }
 
+// Formata os dígitos digitados como dd/mm/aaaa (mesmo em celulares onde o
+// seletor nativo de data varia de formato/tamanho conforme o idioma do aparelho).
+export function maskDateInput(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  const day = digits.slice(0, 2)
+  const month = digits.slice(2, 4)
+  const year = digits.slice(4, 8)
+  return [day, month, year].filter(Boolean).join('/')
+}
+
 export function parseBrNumber(raw: string): number | null {
   let s = raw.trim()
   if (!s) return null

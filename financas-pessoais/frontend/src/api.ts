@@ -65,7 +65,8 @@ export const api = {
   postForm: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  del: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
 }
 
 export function setToken(token: string | null) {

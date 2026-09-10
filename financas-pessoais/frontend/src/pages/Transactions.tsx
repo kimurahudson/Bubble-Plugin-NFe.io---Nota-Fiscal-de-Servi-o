@@ -143,9 +143,16 @@ export default function Transactions() {
     await load()
   }
 
-  async function handleBulkSubmit(input: { categoryId?: number | null; bankId?: number | null }) {
+  async function handleBulkSubmit(input: { categoryId?: number | null; bankId?: number | null; date?: string }) {
     await api.put('/transactions/bulk', { ids: Array.from(selectedIds), ...input })
     setShowBulkForm(false)
+    await load()
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`Excluir ${selectedIds.size} lançamento(s) selecionado(s)? Essa ação não pode ser desfeita.`))
+      return
+    await api.del('/transactions/bulk', { ids: Array.from(selectedIds) })
     await load()
   }
 
@@ -407,13 +414,27 @@ export default function Transactions() {
             >
               Alterar selecionados
             </button>
+            <button
+              onClick={handleBulkDelete}
+              className="hidden md:inline bg-red-600 text-white font-semibold rounded-full px-3 py-1.5 whitespace-nowrap"
+            >
+              Excluir selecionados
+            </button>
           </div>
-          <button
-            onClick={() => setShowBulkForm(true)}
-            className="md:hidden w-full mt-2 bg-brand-lime text-brand-dark font-semibold rounded-lg py-2"
-          >
-            Alterar selecionados
-          </button>
+          <div className="md:hidden flex gap-2 mt-2">
+            <button
+              onClick={() => setShowBulkForm(true)}
+              className="flex-1 bg-brand-lime text-brand-dark font-semibold rounded-lg py-2"
+            >
+              Alterar
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="flex-1 bg-red-600 text-white font-semibold rounded-lg py-2"
+            >
+              Excluir
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,18 +1,20 @@
 import { useState, type FormEvent } from 'react'
 import { useData } from '../context/DataContext'
+import { maskDateInput, parseBrDate } from '../utils/parse'
 
 const NONE = '__none__'
 
 interface Props {
   count: number
   onCancel: () => void
-  onSubmit: (input: { categoryId?: number | null; bankId?: number | null }) => Promise<void>
+  onSubmit: (input: { categoryId?: number | null; bankId?: number | null; date?: string }) => Promise<void>
 }
 
 export default function BulkEditForm({ count, onCancel, onSubmit }: Props) {
   const { categories, banks } = useData()
   const [categoryId, setCategoryId] = useState<string>(NONE)
   const [bankId, setBankId] = useState<string>(NONE)
+  const [dateText, setDateText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -23,16 +25,27 @@ export default function BulkEditForm({ count, onCancel, onSubmit }: Props) {
     e.preventDefault()
     setError(null)
 
-    if (categoryId === NONE && bankId === NONE) {
-      setError('Escolha ao menos uma alteração (categoria ou banco)')
+    if (categoryId === NONE && bankId === NONE && !dateText) {
+      setError('Escolha ao menos uma alteração (categoria, banco ou data)')
       return
+    }
+
+    let isoDate: string | undefined
+    if (dateText) {
+      const parsed = parseBrDate(dateText)
+      if (!parsed) {
+        setError('Informe uma data válida no formato dd/mm/aaaa')
+        return
+      }
+      isoDate = parsed
     }
 
     setSaving(true)
     try {
-      const input: { categoryId?: number | null; bankId?: number | null } = {}
+      const input: { categoryId?: number | null; bankId?: number | null; date?: string } = {}
       if (categoryId !== NONE) input.categoryId = categoryId ? Number(categoryId) : null
       if (bankId !== NONE) input.bankId = bankId ? Number(bankId) : null
+      if (isoDate) input.date = isoDate
       await onSubmit(input)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao alterar lançamentos')
@@ -56,6 +69,19 @@ export default function BulkEditForm({ count, onCancel, onSubmit }: Props) {
             Só os campos alterados abaixo serão aplicados a todos os selecionados. Deixe em "Não alterar"
             para manter o valor atual de cada lançamento.
           </p>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Data</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={dateText}
+              onChange={(e) => setDateText(maskDateInput(e.target.value))}
+              placeholder="Não alterar (dd/mm/aaaa)"
+              maxLength={10}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-lime"
+            />
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>

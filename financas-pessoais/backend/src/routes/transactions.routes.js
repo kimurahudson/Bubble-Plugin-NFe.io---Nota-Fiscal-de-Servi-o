@@ -104,17 +104,21 @@ router.post('/', async (req, res) => {
   res.status(201).json({ transaction: serialize(row) });
 });
 
-// PUT /api/transactions/bulk  { ids: number[], categoryId?, bankId? }
+// PUT /api/transactions/bulk  { ids: number[], categoryId?, bankId?, date? }
 // Precisa vir antes de PUT /:id, senão o Express casaria "bulk" como um :id.
 router.put('/bulk', async (req, res) => {
-  const { ids, categoryId, bankId } = req.body || {};
+  const { ids, categoryId, bankId, date } = req.body || {};
   const idList = Array.isArray(ids) ? ids.map(Number).filter(Number.isInteger) : [];
   if (!idList.length) return res.status(400).json({ error: 'Nenhum lançamento selecionado' });
 
   const hasCategory = categoryId !== undefined;
   const hasBank = bankId !== undefined;
-  if (!hasCategory && !hasBank) {
+  const hasDate = date !== undefined;
+  if (!hasCategory && !hasBank && !hasDate) {
     return res.status(400).json({ error: 'Informe ao menos um campo para alterar' });
+  }
+  if (hasDate && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Data inválida (use AAAA-MM-DD)' });
   }
 
   const placeholders = idList.map(() => '?').join(',');
@@ -136,6 +140,10 @@ router.put('/bulk', async (req, res) => {
     sets.push('bank_id = ?');
     args.push(bankId || null);
   }
+  if (hasDate) {
+    sets.push('date = ?');
+    args.push(date);
+  }
   sets.push("updated_at = datetime('now')");
 
   await db.run(
@@ -148,6 +156,29 @@ router.put('/bulk', async (req, res) => {
     [req.userId, ...idList]
   );
   res.json({ transactions: rows.map(serialize), count: rows.length });
+});
+
+// DELETE /api/transactions/bulk  { ids: number[] }
+// Precisa vir antes de DELETE /:id, senão o Express casaria "bulk" como um :id.
+router.delete('/bulk', async (req, res) => {
+  const { ids } = req.body || {};
+  const idList = Array.isArray(ids) ? ids.map(Number).filter(Number.isInteger) : [];
+  if (!idList.length) return res.status(400).json({ error: 'Nenhum lançamento selecionado' });
+
+  const placeholders = idList.map(() => '?').join(',');
+  const owned = await db.all(
+    `SELECT id FROM transactions WHERE user_id = ? AND id IN (${placeholders})`,
+    [req.userId, ...idList]
+  );
+  if (owned.length !== idList.length) {
+    return res.status(404).json({ error: 'Um ou mais lançamentos não foram encontrados' });
+  }
+
+  await db.run(`DELETE FROM transactions WHERE user_id = ? AND id IN (${placeholders})`, [
+    req.userId,
+    ...idList,
+  ]);
+  res.json({ count: idList.length });
 });
 
 // GET /api/transactions/suggest-category?description=...&type=...
