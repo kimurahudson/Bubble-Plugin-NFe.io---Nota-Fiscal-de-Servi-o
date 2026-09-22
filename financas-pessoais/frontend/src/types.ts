@@ -73,3 +73,11 @@ export interface CategorySuggestion {
 export interface TransactionSuggestion extends Transaction {
   suggestion: CategorySuggestion | null
 }
+
+export interface DuplicateTransaction extends Transaction {
+  suggestedKeep: boolean
+}
+
+export interface DuplicateGroup {
+  transactions: DuplicateTransaction[]
+}

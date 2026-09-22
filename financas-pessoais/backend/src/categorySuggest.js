@@ -1,4 +1,5 @@
 const db = require('./db');
+const { normalize } = require('./textUtils');
 
 // Palavras curtas (preposições, artigos etc.) não ajudam a identificar a categoria
 // e aparecem em quase toda descrição — por isso ficam fora da comparação por token.
@@ -20,17 +21,6 @@ const KEYWORD_RULES = [
   { category: 'Salário', type: 'receita', keywords: ['salario', 'folha de pagamento', 'holerite', 'pro labore', 'pro-labore'] },
   { category: 'Outras receitas', type: 'receita', keywords: ['transferencia recebida', 'pix recebido', 'reembolso', 'restituicao', 'rendimento', 'dividendo', 'freela', 'freelance'] },
 ];
-
-function normalize(text) {
-  return (text || '')
-    .toString()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 function significantTokens(normalizedText) {
   return normalizedText.split(' ').filter((word) => word.length >= 4 && !STOPWORDS.has(word));

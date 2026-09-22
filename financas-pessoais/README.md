@@ -1,7 +1,7 @@
 # Finanças Pessoais
 
 App web para controle financeiro pessoal: lance receitas e despesas manualmente ou importando o
-extrato CSV do banco, categorize os gastos e acompanhe tudo com a mesma conta no celular e no
+extrato CSV ou XLSX do banco, categorize os gastos e acompanhe tudo com a mesma conta no celular e no
 computador (os dados ficam no servidor, então qualquer dispositivo logado vê as mesmas informações
 sempre atualizadas).
 
@@ -38,7 +38,8 @@ persistente.
 - Confirmação de e-mail no cadastro e recuperação de senha por link enviado por e-mail
 - Lançamentos manuais de receitas e despesas com: Data, Valor, Parcela, Parcela total, Categoria e Banco
 - Incluir, alterar e excluir lançamentos, categorias e bancos
-- Importação de extrato em CSV: upload → mapeamento de colunas → pré-visualização → confirmação
+- Importação de extrato em CSV ou XLSX: upload → mapeamento de colunas → pré-visualização → confirmação
+- Sugestão automática de categoria (histórico + palavras-chave) e detecção de lançamentos duplicados
 - Filtros por mês, tipo, categoria e banco, com totais de receitas/despesas/saldo
 - Layout responsivo (tabela no desktop, cards no celular) e instalável como app (PWA)
 
@@ -140,9 +141,9 @@ Qualquer serviço que rode Docker (Railway, Fly.io, um VPS) também funciona par
 Cloudflare Pages) funciona; `vercel.json` e `public/_redirects` já cobrem o fallback de rotas para
 Vercel e Netlify.
 
-## Importação de CSV
+## Importação de CSV/XLSX
 
-O importador aceita CSV com separador `,` ou `;` (detectado automaticamente) e funciona com
+O importador aceita CSV (separador `,` ou `;`, detectado automaticamente) e XLSX, e funciona com
 qualquer banco, pois você mapeia manualmente qual coluna do arquivo é Data, Valor, Descrição,
 Parcela e Categoria antes de confirmar. Também é possível:
 
@@ -151,3 +152,10 @@ Parcela e Categoria antes de confirmar. Também é possível:
 - Escolher (ou cadastrar na hora) o banco de origem do extrato
 
 Linhas com data ou valor inválidos são destacadas e não são importadas.
+
+## Duplicados
+
+A ferramenta "Remover duplicados" (na tela de Lançamentos) agrupa lançamentos com a mesma data,
+valor, tipo e descrição — útil quando o mesmo extrato é importado mais de uma vez. Para cada grupo
+o lançamento mais antigo vem sugerido para manter; os demais vêm pré-marcados para exclusão, mas
+tudo pode ser revisado antes de confirmar.

@@ -79,7 +79,7 @@ export default function ImportCsv() {
       })
       setStep('mapping')
     } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : 'Erro ao ler o arquivo CSV')
+      setUploadError(err instanceof ApiError ? err.message : 'Erro ao ler o arquivo')
     } finally {
       setUploading(false)
     }
@@ -185,20 +185,26 @@ export default function ImportCsv() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-brand-dark mb-4">Importar CSV do banco</h1>
+      <h1 className="text-xl font-bold text-brand-dark mb-4">Importar extrato do banco</h1>
 
       {step === 'upload' && (
         <div className="bg-white rounded-xl shadow p-6 max-w-lg">
           <p className="text-sm text-gray-600 mb-4">
-            Selecione o arquivo CSV exportado pelo internet banking do seu banco. Aceitamos arquivos com
-            separador vírgula ou ponto e vírgula.
+            Selecione o arquivo CSV ou XLSX exportado pelo internet banking do seu banco. No CSV
+            aceitamos separador vírgula ou ponto e vírgula.
           </p>
           <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl py-10 cursor-pointer hover:border-brand-lime transition-colors">
             <span className="text-3xl">📄</span>
             <span className="text-sm text-gray-600">
-              {uploading ? 'Lendo arquivo...' : fileName || 'Clique para selecionar o arquivo .csv'}
+              {uploading ? 'Lendo arquivo...' : fileName || 'Clique para selecionar o arquivo .csv ou .xlsx'}
             </span>
-            <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} disabled={uploading} />
+            <input
+              type="file"
+              accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={uploading}
+            />
           </label>
           {uploadError && <p className="text-red-600 text-sm mt-3">{uploadError}</p>}
         </div>

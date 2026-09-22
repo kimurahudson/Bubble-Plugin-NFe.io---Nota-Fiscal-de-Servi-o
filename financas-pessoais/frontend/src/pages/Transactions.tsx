@@ -5,6 +5,7 @@ import { useData } from '../context/DataContext'
 import TransactionForm from '../components/TransactionForm'
 import BulkEditForm from '../components/BulkEditForm'
 import CategorySuggestions from '../components/CategorySuggestions'
+import DuplicateTransactions from '../components/DuplicateTransactions'
 import { buildMonthOptions, currentMonth, formatMonthLabel } from '../utils/month'
 import type { Transaction, TransactionInput } from '../types'
 
@@ -43,6 +44,7 @@ export default function Transactions() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showBulkForm, setShowBulkForm] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showDuplicates, setShowDuplicates] = useState(false)
   const [sortBy, setSortBy] = useState<SortOption>('data-desc')
 
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories])
@@ -161,6 +163,11 @@ export default function Transactions() {
     await load()
   }
 
+  async function handleDuplicatesApplied() {
+    setShowDuplicates(false)
+    await load()
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -171,6 +178,12 @@ export default function Transactions() {
             className="bg-white border border-gray-300 text-brand-dark font-semibold text-sm rounded-lg px-4 py-2 hover:bg-gray-50"
           >
             Sugerir categorias
+          </button>
+          <button
+            onClick={() => setShowDuplicates(true)}
+            className="bg-white border border-gray-300 text-brand-dark font-semibold text-sm rounded-lg px-4 py-2 hover:bg-gray-50"
+          >
+            Remover duplicados
           </button>
           <button
             onClick={() => {
@@ -280,7 +293,7 @@ export default function Transactions() {
 
       {!loading && transactions.length === 0 && (
         <p className="text-gray-500 text-sm bg-white rounded-xl shadow p-6 text-center">
-          Nenhum lançamento neste período. Clique em "Novo lançamento" ou importe um extrato em CSV.
+          Nenhum lançamento neste período. Clique em "Novo lançamento" ou importe um extrato em CSV/XLSX.
         </p>
       )}
 
@@ -459,6 +472,10 @@ export default function Transactions() {
 
       {showSuggestions && (
         <CategorySuggestions onCancel={() => setShowSuggestions(false)} onApplied={handleSuggestionsApplied} />
+      )}
+
+      {showDuplicates && (
+        <DuplicateTransactions onCancel={() => setShowDuplicates(false)} onApplied={handleDuplicatesApplied} />
       )}
     </div>
   )

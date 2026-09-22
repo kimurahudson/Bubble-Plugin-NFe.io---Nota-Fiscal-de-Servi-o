@@ -6,7 +6,7 @@ import { api } from '../api'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', mobileLabel: 'Dashboard', icon: '📊' },
   { to: '/', label: 'Lançamentos', mobileLabel: 'Lançamentos', icon: '📋' },
-  { to: '/importar', label: 'Importar CSV', mobileLabel: 'CSV', icon: '📥' },
+  { to: '/importar', label: 'Importar extrato', mobileLabel: 'Importar', icon: '📥' },
   { to: '/categorias', label: 'Categorias', mobileLabel: 'Categorias', icon: '🏷️' },
   { to: '/bancos', label: 'Bancos', mobileLabel: 'Bancos', icon: '🏦' },
   { to: '/seguranca', label: 'Segurança', mobileLabel: 'Segurança', icon: '🔒' },

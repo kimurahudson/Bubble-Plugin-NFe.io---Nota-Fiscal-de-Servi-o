@@ -2,6 +2,8 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../auth');
 const { suggestCategoryFor } = require('../categorySuggest');
+const { findDuplicateGroups } = require('../duplicates');
+const { serialize } = require('../transactionSerializer');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -10,22 +12,6 @@ function toCents(value) {
   const n = Number(value);
   if (Number.isNaN(n)) return null;
   return Math.round(n * 100);
-}
-
-function serialize(row) {
-  return {
-    id: row.id,
-    date: row.date,
-    description: row.description,
-    value: row.value_cents / 100,
-    type: row.type,
-    installment: row.installment,
-    installmentTotal: row.installment_total,
-    categoryId: row.category_id,
-    bankId: row.bank_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
 }
 
 function validatePayload(body, isPartial) {
@@ -179,6 +165,15 @@ router.delete('/bulk', async (req, res) => {
     ...idList,
   ]);
   res.json({ count: idList.length });
+});
+
+// GET /api/transactions/duplicates?month=2026-09
+// Agrupa lançamentos com mesma data, valor, tipo e descrição — possíveis duplicados
+// (ex: extrato importado duas vezes).
+router.get('/duplicates', async (req, res) => {
+  const { month } = req.query;
+  const groups = await findDuplicateGroups({ userId: req.userId, month: month || undefined });
+  res.json({ groups });
 });
 
 // GET /api/transactions/suggest-category?description=...&type=...
